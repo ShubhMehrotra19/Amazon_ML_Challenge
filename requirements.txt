@@ -1,0 +1,182 @@
+# ===============================================================================
+# SMART PRODUCT PRICING CHALLENGE - REQUIREMENTS (UPDATED)
+# ===============================================================================
+# Python package dependencies for the complete ML solution with image processing
+#
+# Installation:
+#   pip install -r requirements.txt
+#
+# Recommended Python version: 3.8 - 3.11
+# ===============================================================================
+
+# ===== CRITICAL CORE LIBRARIES (REQUIRED) =====
+
+# Core Data Science Libraries
+numpy>=1.21.0,<2.0.0
+pandas>=1.3.0,<3.0.0
+scipy>=1.7.0
+
+# Machine Learning Core
+scikit-learn>=1.0.0,<2.0.0
+
+# Gradient Boosting Libraries
+xgboost>=1.5.0,<3.0.0
+lightgbm>=3.3.0,<5.0.0
+
+# Text Processing (REQUIRED)
+textblob>=0.15.3
+nltk>=3.6.0
+
+# Data Visualization (REQUIRED)
+matplotlib>=3.4.0,<4.0.0
+seaborn>=0.11.0,<1.0.0
+
+# Progress Bars (REQUIRED)
+tqdm>=4.62.0
+
+# Model Persistence (REQUIRED)
+joblib>=1.1.0
+
+# ===== NEW: IMAGE PROCESSING (CRITICAL FOR NEW FEATURES) =====
+
+# Image Processing - REQUIRED for real image feature extraction
+Pillow>=9.0.0,<11.0.0  # PIL/Pillow for image loading and processing
+requests>=2.25.0       # For downloading images from URLs
+
+# ===== SYSTEM UTILITIES (REQUIRED) =====
+
+# System monitoring for memory management
+psutil>=5.8.0
+
+# ===== DATA I/O (REQUIRED) =====
+
+# CSV/Excel File Support
+openpyxl>=3.0.9  # For Excel support (if needed)
+
+# ===== OPTIONAL BUT RECOMMENDED =====
+
+# Advanced Visualization
+plotly>=5.0.0,<6.0.0
+wordcloud>=1.8.0
+
+# Advanced Encoding
+category_encoders>=2.3.0
+
+# Additional Utilities
+python-dateutil>=2.8.0
+pytz>=2021.3
+pyyaml>=5.4.0
+
+# Better Performance
+numba>=0.54.0
+
+# ===== DEVELOPMENT & TESTING (OPTIONAL) =====
+
+# Jupyter Environment (for interactive development)
+jupyter>=1.0.0
+ipython>=7.0.0
+notebook>=6.4.0
+
+# Model Tracking
+# mlflow>=1.20.0  # Uncomment if you want experiment tracking
+
+# Hyperparameter Tuning
+# optuna>=2.10.0  # Uncomment if you want automated tuning
+# hyperopt>=0.2.5
+
+# Testing
+# pytest>=6.2.0
+# pytest-cov>=2.12.0
+
+# Code Quality
+# black>=21.0
+# flake8>=3.9.0
+# pylint>=2.10.0
+
+# ===============================================================================
+# INSTALLATION INSTRUCTIONS
+# ===============================================================================
+#
+# 1. BASIC INSTALLATION (Minimum required packages):
+#    pip install numpy pandas scikit-learn xgboost lightgbm textblob nltk \
+#                matplotlib seaborn tqdm joblib Pillow requests psutil openpyxl
+#
+# 2. FULL INSTALLATION (All packages):
+#    pip install -r requirements.txt
+#
+# 3. GPU SUPPORT (Optional, for faster XGBoost/LightGBM):
+#    # For NVIDIA GPUs with CUDA:
+#    pip install xgboost[gpu] lightgbm[gpu]
+#
+# 4. POST-INSTALLATION (Download NLTK data):
+#    python -c "import nltk; nltk.download('punkt'); nltk.download('stopwords'); nltk.download('vader_lexicon')"
+#
+# ===============================================================================
+# TROUBLESHOOTING
+# ===============================================================================
+#
+# If you encounter issues:
+#
+# 1. Pillow installation fails:
+#    - Windows: Install Visual C++ Build Tools
+#    - Linux: sudo apt-get install python3-dev libjpeg-dev zlib1g-dev
+#    - Mac: brew install libjpeg
+#
+# 2. XGBoost/LightGBM installation fails:
+#    - Try: pip install --upgrade pip setuptools wheel
+#    - Then retry installation
+#
+# 3. Memory errors during execution:
+#    - Reduce CONFIG['text_processing']['max_features'] to 1000
+#    - Reduce CONFIG['feature_engineering']['image_sample_size'] to 1000
+#    - Set QUICK_TEST = True in main execution
+#
+# 4. Image download failures:
+#    - Images may timeout or fail - this is handled gracefully
+#    - Increase timeout in _extract_single_image_features() if needed
+#    - Consider running with use_real_image_features=False for faster execution
+#
+# ===============================================================================
+# PLATFORM-SPECIFIC NOTES
+# ===============================================================================
+#
+# Windows:
+#   - May need Microsoft Visual C++ 14.0 or greater
+#   - Download from: https://visualstudio.microsoft.com/downloads/
+#
+# Linux:
+#   - May need: sudo apt-get install python3-dev build-essential
+#
+# macOS:
+#   - May need Xcode Command Line Tools: xcode-select --install
+#
+# ===============================================================================
+# MINIMAL REQUIREMENTS (If you have constraints)
+# ===============================================================================
+#
+# Absolute minimum for basic functionality (no image features):
+# numpy>=1.21.0
+# pandas>=1.3.0
+# scikit-learn>=1.0.0
+# xgboost>=1.5.0
+# lightgbm>=3.3.0
+# textblob>=0.15.3
+# nltk>=3.6.0
+# matplotlib>=3.4.0
+# seaborn>=0.11.0
+# tqdm>=4.62.0
+# joblib>=1.1.0
+# psutil>=5.8.0
+#
+# Then set: CONFIG['feature_engineering']['use_real_image_features'] = False
+#
+# ===============================================================================
+# VERSION COMPATIBILITY
+# ===============================================================================
+#
+# Tested on:
+# - Python 3.8.x, 3.9.x, 3.10.x, 3.11.x
+# - Not compatible with Python 3.7 or earlier
+# - Not tested on Python 3.12+ (may work but not guaranteed)
+#
+# ===============================================================================
