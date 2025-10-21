@@ -23,7 +23,8 @@ This system predicts product prices from catalog descriptions using a sophistica
 
 The pipeline consists of three main components working in sequence:
 
-[3]
+<img width="2400" height="1600" alt="image" src="https://github.com/user-attachments/assets/acdc8836-37d5-4692-9e56-8e8cf73db7ea" />
+
 
 ### Pipeline Stages
 
@@ -173,6 +174,8 @@ The script will automatically:
 6. Create visualization in `gpu_results_fixed.png`
 
 ### Expected Output
+
+<img width="2684" height="740" alt="gpu_results_fixed" src="https://github.com/user-attachments/assets/37eb818a-dcc0-46ac-bd72-50865632c7d3" />
 
 
 ## 📁 File Structure
@@ -332,6 +335,8 @@ def calculate_metrics(y_true, y_pred):
 
 ## 🔍 Key Improvements Over Original
 
+<img width="2400" height="1600" alt="image" src="https://github.com/user-attachments/assets/c0d13e21-fafd-4d07-8aa2-e54ded3f1645" />
+
 ### Before (Original Code Issues)
 
 ❌ Feature count mismatch between train and test  
@@ -427,3 +432,4 @@ If you find this project useful, please consider giving it a ⭐!
 **Made with ❤️ by Shubh Mehrotra**
 
 *Last Updated: October 2025*
+
