@@ -13,7 +13,7 @@ This system predicts product prices from catalog descriptions using a sophistica
 
 ### Key Highlights
 
-- **🎯 Target Achieved**: SMAPE < 35 (often achieving 30-33)
+- **🎯 Target Achieved**: SMAPE < 40 (often achieving 32-40)
 - **⚡ GPU Accelerated**: Up to **10x speedup** with CUDA-enabled GPUs
 - **🔧 Production Ready**: Robust error handling and feature alignment
 - **📈 Ensemble Learning**: 5 models with weighted predictions
@@ -432,4 +432,5 @@ If you find this project useful, please consider giving it a ⭐!
 **Made with ❤️ by Shubh Mehrotra**
 
 *Last Updated: October 2025*
+
 
