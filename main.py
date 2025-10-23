@@ -117,7 +117,8 @@ except Exception as e:
 
 # General warnings to ignore
 warnings.filterwarnings('ignore')
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Configure logger
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', stream=sys.stdout)
 logger = logging.getLogger("GPUFastPricing")
 
 N_THREADS = cpu_count()
@@ -435,7 +436,7 @@ class GPUFeatureEngineer:
         self.scaler = RobustScaler()
         self.max_workers = config['max_workers']
         self.feature_columns = None
-        self.feature_selector = None  # Store selector for consistent feature selection
+        self.feature_selector = None
 
     def create_features(self, train_df: pd.DataFrame, test_df: Optional[pd.DataFrame] = None):
         self.logger.info("Creating features in parallel...")
@@ -576,7 +577,6 @@ class GPUFeatureEngineer:
         return train_combined, test_combined
 
     # ===========================================================================
-    # START: BUG FIX
     # This helper function robustly converts all columns to numeric,
     # preventing the 'value' column from being dropped if it's 'object' type.
     # ===========================================================================
@@ -605,7 +605,6 @@ class GPUFeatureEngineer:
         """FIXED: Proper feature alignment and DTYPE handling before selection"""
         k = self.config['feature_engineering']['feature_selection_k']
 
-        # CRITICAL FIX 1: Align test to train BEFORE any selection or dtype changes
         if X_test is not None:
             self.logger.info("Aligning test features to training features BEFORE selection...")
             # Add missing columns to test
@@ -618,8 +617,6 @@ class GPUFeatureEngineer:
             X_test = X_test[X_train.columns]
             self.logger.info(f"Test features aligned: {X_test.shape}")
 
-        # CRITICAL FIX 2: Prepare numeric data for selection robustly
-        # Do NOT use select_dtypes, as it drops columns with mismatched dtypes (e.g., 'value')
         self.logger.info("Converting training data to numeric for selection...")
         X_train_numeric = self._ensure_numeric_for_selection(X_train)
 
@@ -649,15 +646,9 @@ class GPUFeatureEngineer:
 
         X_test_selected = None
         if X_test is not None:
-            # CRITICAL FIX 2 (Applied to test): Prepare numeric test data
             self.logger.info("Converting test data to numeric for transform...")
             X_test_numeric = self._ensure_numeric_for_selection(X_test)
-
-            # Apply same selection to test data
-            # X_test_numeric has the same columns as X_train_numeric due to prior alignment
             X_test_selected_data = self.feature_selector.transform(X_test_numeric)
-
-            # Create test dataframe with selected features
             X_test_selected = pd.DataFrame(X_test_selected_data, columns=selected_cols, index=X_test.index)
 
             self.logger.info(f"Test features after selection: {X_test_selected.shape}")
@@ -666,10 +657,6 @@ class GPUFeatureEngineer:
         self.logger.info(f"Selected features sample: {selected_cols[:10]}")
 
         return X_train_selected, X_test_selected
-    # ===========================================================================
-    # END: BUG FIX
-    # ===========================================================================
-
 
 class GPUWeightedEnsemble:
     def __init__(self, config: Dict):
@@ -698,7 +685,7 @@ class GPUWeightedEnsemble:
 
         name, model, X_train, X_val, y_train, y_val, fold, val_idx = args
         try:
-            if fold == -1:  # Final training on full data
+            if fold == -1:
                 if name in ['lgb', 'xgb']:
                     model_fold = type(model)(**model.get_params())
                     model_fold.fit(X_train, y_train)
@@ -710,7 +697,7 @@ class GPUWeightedEnsemble:
 
                 return name, None, fold, None, model_fold
 
-            else:  # Cross-validation fold
+            else:
                 if name == 'lgb':
                     model_fold = type(model)(**model.get_params())
                     model_fold.fit(
@@ -954,7 +941,7 @@ def create_submission(predictions: np.ndarray, sample_ids: List, output: str) ->
 
 def visualize_results(results: Dict, save_path: Optional[str] = None):
     fig, axes = plt.subplots(1, 3, figsize=(18, 5))
-    fig.suptitle('FIXED GPU Training Results - 5 Models (Python 3.12 + CUDA 13)', fontsize=14, fontweight='bold')
+    fig.suptitle('GPU Training Results - 5 Models (Python 3.12 + CUDA 13)', fontsize=14, fontweight='bold')
 
     ax1 = axes[0]
     if 'training_results' in results:
@@ -979,19 +966,19 @@ def visualize_results(results: Dict, save_path: Optional[str] = None):
         cuda_minor = (CUDA_VERSION % 1000) // 10
         cuda_info = f"CUDA: {cuda_major}.{cuda_minor}"
     gpu_info = f"""
-    ⚡ GPU ACCELERATION (FIXED)
+     GPU ACCELERATION
 
-    GPU Available: {'✅ Yes' if GPU_AVAILABLE else '❌ No'}
-    CuPy: {'✅' if USE_CUPY else '❌'}
-    {cuda_info}
+     GPU Available: {'Yes' if GPU_AVAILABLE else 'No'}
+     CuPy: {'Yes' if USE_CUPY else 'No'}
+     {cuda_info}
 
-    Python: {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}
-    CPU Threads: {N_THREADS}
-    Max Workers: {MAX_WORKERS}
+     Python: {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}
+     CPU Threads: {N_THREADS}
+     Max Workers: {MAX_WORKERS}
 
-    Models: 5 (Parallel Training)
-    Bug Fix: ✅ Feature Alignment
-    """
+     Models: 5 (Parallel Training)
+     Bug Fix: Feature Alignment
+     """
     ax2.text(0.1, 0.5, gpu_info, transform=ax2.transAxes, fontsize=11,
              verticalalignment='center', fontfamily='monospace',
              bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.5))
@@ -1002,18 +989,17 @@ def visualize_results(results: Dict, save_path: Optional[str] = None):
         smape = results['training_results']['ensemble']['smape']
         speedup = results.get('speedup_factor', 1.0)
         summary = f"""
-        🎯 FINAL RESULTS (FIXED)
+         FINAL RESULTS
 
-        SMAPE: {smape:.4f}
-        Status: {'✅ EXCELLENT' if smape < 35 else '⚠️ GOOD'}
+         SMAPE: {smape:.4f}
+         Status: {'EXCELLENT' if smape < 35 else 'GOOD'}
 
-        Features: {results.get('n_features', 'N/A')}
-        Time: {results.get('time_minutes', 'N/A'):.1f} min
-        Speedup: {speedup:.1f}x
+         Features: {results.get('n_features', 'N/A')}
+         Time: {results.get('time_minutes', 'N/A'):.1f} min
 
-        GPU: {'🚀 ENABLED' if GPU_AVAILABLE else '💻 CPU Only'}
-        Parallel: ✅ Active
-        """
+         GPU: {'ENABLED' if GPU_AVAILABLE else 'CPU Only'}
+         Parallel: Active
+         """
         ax3.text(0.1, 0.5, summary, transform=ax3.transAxes, fontsize=12,
                  verticalalignment='center', fontfamily='monospace',
                  bbox=dict(boxstyle='round', facecolor='lightgreen', alpha=0.5))
@@ -1029,11 +1015,8 @@ def run_gpu_pipeline(save_model: bool = True):
     """FIXED: Main pipeline with proper feature alignment"""
     start_time = timer()
     print("\n" + "=" * 70)
-    print("🚀 FIXED GPU-ACCELERATED PRICING PIPELINE - 5 MODELS")
-    print("   Python 3.12.10 + CUDA 13 Compatible")
-    print("   ✅ FEATURE ALIGNMENT BUG FIXED")
+    print("GPU-ACCELERATED PRICING PIPELINE - 5 MODELS")
     print("=" * 70)
-    print(f"Target: SMAPE < 35, Time < 1 hour with GPU")
     print(f"Python: {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")
     print(f"GPU Available: {GPU_AVAILABLE}")
     print(f"CuPy Available: {USE_CUPY}")
@@ -1049,88 +1032,76 @@ def run_gpu_pipeline(save_model: bool = True):
 
     results = {}
     try:
-        print("\n⏳ Step 1/6: Loading data...")
+        logger.info("Step 1/6: Loading data...")
         train_df, test_df = load_data_parallel()
 
-        print("⏳ Step 2/6: Preprocessing...")
+        logger.info("Step 2/6: Preprocessing...")
         preprocessor = ParallelDataPreprocessor(CONFIG)
         train_processed = preprocessor.preprocess(train_df, is_training=True)
         test_processed = preprocessor.preprocess(test_df, is_training=False)
-        print(f"✅ Preprocessed: Train {train_processed.shape}, Test {test_processed.shape}")
+        logger.info(f"Preprocessed: Train {train_processed.shape}, Test {test_processed.shape}")
 
-        print("⏳ Step 3/6: Feature engineering...")
+        logger.info("Step 3/6: Feature engineering...")
         engineer = GPUFeatureEngineer(CONFIG)
         train_features, test_features = engineer.create_features(train_processed, test_processed)
-        print(f"✅ Features created: {train_features.shape[1]} columns")
+        logger.info(f"Features created: {train_features.shape[1]} columns")
 
-        print("⏳ Step 4/6: Preparing features...")
+        logger.info("Step 4/6: Preparing features...")
         exclude_cols = [
             'sample_id', 'catalog_content', 'price',
             'item_name', 'description', 'brand'
         ]
-
-        # Get feature columns from training data
-        # We no longer filter for numeric here, the selection function will handle it
         feature_cols = [col for col in train_features.columns
                         if col not in exclude_cols]
 
-        # Ensure 'price' is not in the feature list by mistake
         if 'price' in feature_cols:
             feature_cols.remove('price')
 
         X_train = train_features[feature_cols].copy()
         y_train = train_features['price'].copy()
 
-        # CRITICAL FIX: Align test features to training features BEFORE selection
-        print(f"📊 Initial - Train: {X_train.shape}, Test columns: {len(test_features.columns)}")
+        logger.info(f"Initial - Train: {X_train.shape}, Test columns: {len(test_features.columns)}")
 
-        # Create X_test with same columns as X_train
         X_test = test_features.copy()
         for col in feature_cols:
             if col not in X_test.columns:
                 X_test[col] = 0
-                print(f"   ⚠️  Added missing column to test: {col}")
-
-        # Select and reorder columns to match train
+                logger.warning(f"Added missing column to test: {col}")
         X_test = X_test[feature_cols].copy()
 
-        print(f"✅ Aligned - Train: {X_train.shape}, Test: {X_test.shape}")
+        logger.info(f"Aligned - Train: {X_train.shape}, Test: {X_test.shape}")
 
-        print("⏳ Step 5/6: Feature selection...")
-        # The new select_features handles dtype conversion robustly
+        logger.info("Step 5/6: Feature selection...")
         X_train, X_test = engineer.select_features(X_train, y_train, X_test)
-        print(f"✅ Selected features: Train {X_train.shape}, Test {X_test.shape}")
-
-        # VERIFY ALIGNMENT
+        logger.info(f"Selected features: Train {X_train.shape}, Test {X_test.shape}")
         if X_train.shape[1] != X_test.shape[1]:
             raise ValueError(f"Feature count mismatch: Train {X_train.shape[1]} != Test {X_test.shape[1]}")
 
         if not all(X_train.columns == X_test.columns):
             raise ValueError("Column names don't match between train and test!")
 
-        print(f"✅ Verification passed: {X_train.shape[1]} features match perfectly")
+        logger.info(f"Verification passed: {X_train.shape[1]} features match")
 
         results['n_features'] = X_train.shape[1]
 
-        print("⏳ Step 6/6: Training ensemble with PARALLEL execution...")
-        print("   🚀 All 5 models will train in parallel across folds!")
+        logger.info("Step 6/6: Training ensemble with PARALLEL execution...")
+        logger.info("All 5 models will train in parallel across folds!")
         ensemble = GPUWeightedEnsemble(CONFIG)
         training_results = ensemble.fit(X_train, y_train)
         results['training_results'] = training_results
 
         print("\n" + "=" * 70)
-        print("📊 TRAINING RESULTS - 5 MODELS (FIXED)")
+        print("TRAINING RESULTS")
         print("=" * 70)
         for name, metrics in training_results.items():
             if isinstance(metrics, dict) and 'smape' in metrics:
-                status = "✅" if metrics['smape'] < 35 else "⚠️" if metrics['smape'] < 45 else "❌"
-                gpu_marker = "🚀" if name in ['lgb', 'xgb'] and GPU_AVAILABLE else "💻"
-                print(f"{status} {gpu_marker} {name.upper():12} SMAPE: {metrics['smape']:6.4f}")
+                gpu_marker = "(GPU)" if name in ['lgb', 'xgb'] and GPU_AVAILABLE else "(CPU)"
+                print(f"  {name.upper():12} SMAPE: {metrics['smape']:6.4f} {gpu_marker}")
         print("=" * 70)
 
-        print("\n⏳ Generating test predictions...")
-        print(f"   Model expects: {len(ensemble.feature_columns)} features")
-        print(f"   Test data has: {X_test.shape[1]} features")
+        logger.info("Generating test predictions...")
+        logger.info(f"Model expects: {len(ensemble.feature_columns)} features")
+        logger.info(f"Test data has: {X_test.shape[1]} features")
 
         test_predictions = ensemble.predict(X_test)
 
@@ -1160,52 +1131,27 @@ def run_gpu_pipeline(save_model: bool = True):
         results['time_minutes'] = elapsed_minutes
         baseline_time = 120
         speedup_factor = baseline_time / elapsed_minutes if elapsed_minutes > 0 else 1.0
-        results['speedup_factor'] = speedup_factor
+        results['speedup_factor'] = speedup_factor # Keeping for visualize()
 
         print("\n" + "=" * 70)
-        print("🎉 FIXED PIPELINE COMPLETED SUCCESSFULLY!")
+        print("PIPELINE COMPLETED SUCCESSFULLY")
         print("=" * 70)
-        print(f"⏱️  Total Time: {elapsed_minutes:.1f} minutes ({elapsed_minutes / 60:.1f} hours)")
-        print(f"🚀 Speedup: {speedup_factor:.1f}x faster than baseline")
-        print(f"🎯 Final SMAPE: {training_results['ensemble']['smape']:.4f}")
+        print(f"Total Time: {elapsed_minutes:.1f} minutes ({elapsed_minutes / 60:.1f} hours)")
+        print(f"Final SMAPE: {training_results['ensemble']['smape']:.4f}")
 
-        if training_results['ensemble']['smape'] < 35:
-            print("✅ TARGET ACHIEVED! (SMAPE < 35)")
-        elif training_results['ensemble']['smape'] < 40:
-            print("⚠️  CLOSE TO TARGET (SMAPE < 40)")
-        else:
-            print("⚠️  ACCEPTABLE (SMAPE < 45)")
-
-        print(f"\n📊 Predictions:")
-        print(f"   Mean: ${results['pred_stats']['mean']:.2f}")
-        print(f"   Range: ${results['pred_stats']['min']:.2f} - ${results['pred_stats']['max']:.2f}")
-        print(f"\n📁 Files:")
-        print(f"   Submission: {output_path}")
+        print(f"\nPredictions:")
+        print(f"  Mean: ${results['pred_stats']['mean']:.2f}")
+        print(f"  Range: ${results['pred_stats']['min']:.2f} - ${results['pred_stats']['max']:.2f}")
+        print(f"\nFiles:")
+        print(f"  Submission: {output_path}")
         if save_model:
-            print(f"   Model: {model_path}")
-        print("=" * 70)
-
-        print("\n💡 BUG FIX SUMMARY:")
-        print(f"   ✅ Feature Alignment: FIXED")
-        print(f"   ✅ DType Mismatch: FIXED (robust numeric conversion)")
-        print(f"   ✅ Test Features Match Training: YES")
-        print(f"   ✅ Feature Count: {X_train.shape[1]} == {X_test.shape[1]}")
-        print(f"   ✅ XGBoost GPU Compatibility: IMPROVED")
-        print(f"   GPU Enabled: {'✅ Yes' if GPU_AVAILABLE else '❌ No (CPU fallback)'}")
-        print(f"   CuPy (GPU arrays): {'✅' if USE_CUPY else '❌'}")
-        if CUDA_VERSION:
-            cuda_major = CUDA_VERSION // 1000
-            cuda_minor = (CUDA_VERSION % 1000) // 10
-            print(f"   CUDA Version: {cuda_major}.{cuda_minor}")
-        print(f"   CPU Threads Used: {N_THREADS}")
-        print(f"   Parallel Workers: {MAX_WORKERS}")
-        print(f"   Models Trained: 5 (in parallel)")
+            print(f"  Model: {model_path}")
         print("=" * 70)
 
         try:
             visualize_results(results, save_path='gpu_results_fixed.png')
         except Exception as e:
-            print(f"⚠️  Visualization skipped: {e}")
+            logger.warning(f"Visualization skipped: {e}")
 
         return results
 
@@ -1217,7 +1163,7 @@ def run_gpu_pipeline(save_model: bool = True):
 
 
 def validate_submission(file_path: str = 'gpu_predictions_fixed.csv'):
-    print("\n🔍 SUBMISSION VALIDATION")
+    print("\nSUBMISSION VALIDATION")
     print("-" * 50)
     try:
         df = pd.read_csv(file_path)
@@ -1232,26 +1178,26 @@ def validate_submission(file_path: str = 'gpu_predictions_fixed.csv'):
 
         all_passed = True
         for check, passed in checks.items():
-            status = "✅" if passed else "❌"
-            print(f"{status} {check}")
+            status = "Pass" if passed else "FAIL"
+            print(f"  {check}: {status}")
             if not passed:
                 all_passed = False
 
         print("-" * 50)
-        print(f"\n📊 Statistics:")
-        print(f"   Samples: {len(df):,}")
-        print(f"   Mean Price: ${df['price'].mean():.2f}")
-        print(f"   Price Range: ${df['price'].min():.2f} - ${df['price'].max():.2f}")
+        print(f"\nStatistics:")
+        print(f"  Samples: {len(df):,}")
+        print(f"  Mean Price: ${df['price'].mean():.2f}")
+        print(f"  Price Range: ${df['price'].min():.2f} - ${df['price'].max():.2f}")
 
         if all_passed:
-            print("\n🎉 SUBMISSION IS VALID! ✅")
+            print("\nSUBMISSION IS VALID")
         else:
-            print("\n❌ SUBMISSION HAS ISSUES!")
+            print("\nSUBMISSION HAS ISSUES")
 
         return all_passed
 
     except Exception as e:
-        print(f"❌ Validation failed: {str(e)}")
+        logger.error(f"Validation failed: {str(e)}")
         return False
 
 
@@ -1261,14 +1207,12 @@ def validate_submission(file_path: str = 'gpu_predictions_fixed.csv'):
 
 if __name__ == "__main__":
     print("\n" + "=" * 70)
-    print("🚀 FIXED GPU-ACCELERATED PRODUCT PRICING SYSTEM")
-    print("   Training on COMPLETE DATASET with 5 Models")
-    print("   Python 3.12.10 + CUDA 13 Compatible")
-    print("   ✅ FEATURE ALIGNMENT BUG FIXED")
+    print("GPU-ACCELERATED PRODUCT PRICING SYSTEM")
+    print("Training on complete dataset with 5 Models")
     print("=" * 70)
 
     try:
-        print("\n🚀 Starting FIXED PIPELINE with all data...")
+        print("\nStarting pipeline...")
         results = run_gpu_pipeline(save_model=True)
 
         if results:
@@ -1276,29 +1220,28 @@ if __name__ == "__main__":
             validate_submission(results.get('predictions_path', 'gpu_predictions_fixed.csv'))
             print("=" * 70)
 
-            print("\n✅ FIXED PIPELINE COMPLETE!")
-            print(f"\n📁 Output Files:")
-            print(f"   • Predictions: {results.get('predictions_path', 'gpu_predictions_fixed.csv')}")
+            print("\nPipeline Complete.")
+            print(f"\nOutput Files:")
+            print(f"  • Predictions: {results.get('predictions_path', 'gpu_predictions_fixed.csv')}")
             if 'model_path' in results:
-                print(f"   • Model: {results.get('model_path')}")
-            print(f"   • Visualization: gpu_results_fixed.png")
+                print(f"  • Model: {results.get('model_path')}")
+            print(f"  • Visualization: gpu_results_fixed.png")
 
-            print(f"\n⚡ Performance:")
-            print(f"   • Time: {results.get('time_minutes', 0):.1f} minutes")
-            print(f"   • Speedup: {results.get('speedup_factor', 1.0):.1f}x")
-            print(f"   • SMAPE: {results.get('training_results', {}).get('ensemble', {}).get('smape', 'N/A'):.4f}")
+            print(f"\nPerformance:")
+            print(f"  • Time: {results.get('time_minutes', 0):.1f} minutes")
+            print(f"  • SMAPE: {results.get('training_results', {}).get('ensemble', {}).get('smape', 'N/A'):.4f}")
 
     except KeyboardInterrupt:
-        print("\n\n❌ Pipeline interrupted by user")
+        logger.warning("\n\nPipeline interrupted by user")
         sys.exit(1)
     except Exception as e:
-        print(f"\n\n❌ Pipeline failed with error:")
-        print(f"   {str(e)}")
+        logger.error(f"\n\nPipeline failed with error:")
+        logger.error(f"  {str(e)}")
         import traceback
 
         traceback.print_exc()
         sys.exit(1)
 
     print("\n" + "=" * 70)
-    print("🎉 ALL DONE! FEATURE ALIGNMENT FIXED")
+    print("Execution finished.")
     print("=" * 70)
